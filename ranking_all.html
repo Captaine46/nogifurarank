@@ -81,7 +81,7 @@
             color: var(--nogi-purple);
             font-family: 'Roboto Mono', monospace;
             font-size: 1.15rem;
-            letter-spacing: -0.5px;
+            font-size: 1.15rem;
         }
         
         /* Table styles for desktop */
@@ -155,7 +155,7 @@
     <div class="header-section text-center">
         <div class="container">
             <h1 class="mb-2"><i class="fas fa-trophy text-warning"></i> 乃木フラ 全チャンネル 総合力ランキング</h1>
-            <p class="mb-0 opacity-75">最終更新: 2026-02-08 04:30</p>
+            <p class="mb-0 opacity-75">最終更新: 2026-02-08 04:56</p>
         </div>
     </div>
 
@@ -292,8 +292,9 @@
                                 <i class="fas fa-users me-2" style="color: #9d4c9f;"></i>
                                 <span class="text-truncate" style="max-width: 150px; font-weight: 500;">${item.guild || 'グループなし'}</span>
                             </div>
-                            <div class="power-text">
-                                <i class="fas fa-fire me-1" style="color: #e91e63;"></i>${formatNumber(item.power)}
+                            <div class="power-text d-flex align-items-center justify-content-end">
+                                <i class="fas fa-fire me-1" style="color: #e91e63;"></i>
+                                <span>${formatNumber(item.power)}</span>
                             </div>
                         </div>
                     </div>
@@ -303,7 +304,7 @@
                 // --- Desktop Table HTML ---
                 const row = document.createElement('tr');
                 row.innerHTML = `
-                    <td class="text-center"><span class="badge rounded-pill ${rankClass} w-50" style="${rankClass === 'bg-light' ? 'background-color: #f0f2f5 !important; color: #6c757d; border: 1px solid #dee2e6;' : ''}">${displayRank}</span></td>
+                    <td class="text-center"><span class="badge rounded-pill ${rankClass}" style="width: 60px; display: inline-block; ${rankClass === 'bg-light' ? 'background-color: #f0f2f5 !important; color: #6c757d; border: 1px solid #dee2e6;' : ''}">${displayRank}</span></td>
                     <td class="text-center" style="font-weight: 500; color: #7e1083;">${String(item.Server).padStart(2, '0')}</td>
                     <td class="text-center fw-bold text-dark">${item.name}</td>
                     <td class="text-center text-muted">${item.guild}</td>
