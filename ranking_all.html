@@ -9,6 +9,8 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- FontAwesome -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <!-- SheetJS (Excel Export) -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <style>
         :root {
             --nogi-purple: #7e1083;
@@ -158,26 +160,29 @@
     <div class="header-section text-center">
         <div class="container">
             <h1 class="mb-2"><i class="fas fa-trophy text-warning"></i> 乃木フラ 全チャンネル 総合力ランキング</h1>
-            <p class="mb-0 opacity-75">最終更新: 2026-02-20 01:44</p>
+            <p class="mb-0 opacity-75">最終更新: 2026-02-20 21:21</p>
         </div>
     </div>
 
     <div class="container">
         <!-- Search & Filter -->
         <div class="row justify-content-center mb-4">
-            <div class="col-md-8">
-                <div class="search-box d-flex align-items-center">
-                    <div class="input-group">
+            <div class="col-md-9">
+                <div class="search-box d-flex align-items-center flex-wrap gap-2" style="padding-right: 15px;">
+                    <div class="input-group flex-grow-1" style="min-width: 200px;">
                         <span class="input-group-text bg-white border-end-0"><i class="fas fa-search text-muted"></i></span>
                         <input type="text" id="searchInput" class="search-input form-control border-start-0 border-end-0 shadow-none" placeholder="検索 (Regex, Space=AND, |=OR)">
                         <span class="input-group-text bg-white border-start-0" data-bs-toggle="tooltip" data-bs-html="true" title="<b>検索ヘルプ</b><br>Space: AND検索<br>| : OR検索<br>Regex : 正規表現対応<br>例: ^Nogi (Nogiで始まる)">
                             <i class="fas fa-question-circle text-muted" style="cursor: pointer;"></i>
                         </span>
                     </div>
-                    <select id="serverFilter" class="form-select border-0" style="width: auto; background-color: transparent;">
+                    <select id="serverFilter" class="form-select border-0" style="width: auto; background-color: transparent; border-left: 1px solid #eee !important; padding-left: 15px;">
                         <option value="all">全チャンネル</option>
                         <!-- Server options will be injected here -->
                     </select>
+                    <button id="downloadExcelBtn" class="btn btn-sm btn-outline-success border-0 rounded-pill ms-2 px-3 fw-bold shadow-sm" style="white-space: nowrap; transition: 0.3s; background: #e8f5e9;">
+                        <i class="fas fa-file-excel me-1 text-success"></i>Excel出力
+                    </button>
                 </div>
             </div>
         </div>
@@ -218,6 +223,12 @@
             <i class="fas fa-search fa-3x text-muted mb-3"></i>
             <p class="text-muted">一致するデータが見つかりません</p>
         </div>
+        
+        <div id="loadMoreContainer" class="text-center mt-4 mb-5 d-none">
+            <button id="loadMoreBtn" class="btn btn-outline-primary px-5 py-2 rounded-pill shadow-sm" style="font-weight: 600; border-color: var(--nogi-purple); color: var(--nogi-purple);">
+                <i class="fas fa-chevron-down me-2"></i>さらに表示 (101位以降)
+            </button>
+        </div>
     </div>
 
     <!-- Data Injection -->
@@ -227,6 +238,7 @@
         // Initial Config
         const CH_COUNT = 40;
         let currentData = rawData;
+        let currentLimit = 100;
         
         // Populate Server Filter
         const serverFilter = document.getElementById('serverFilter');
@@ -244,10 +256,12 @@
 
         // Render Functions
         function renderData(data, limit = 100) {
+            currentData = data;
             const mobileList = document.getElementById('mobileList');
             const desktopTableBody = document.getElementById('desktopTableBody');
             const totalCount = document.getElementById('totalCount');
             const noResults = document.getElementById('noResults');
+            const loadMoreContainer = document.getElementById('loadMoreContainer');
 
             mobileList.innerHTML = '';
             desktopTableBody.innerHTML = '';
@@ -256,6 +270,7 @@
             
             if (data.length === 0) {
                 noResults.classList.remove('d-none');
+                if(loadMoreContainer) loadMoreContainer.classList.add('d-none');
                 totalCount.textContent = '結果なし';
                 return;
             } else {
@@ -322,9 +337,12 @@
                 desktopTableBody.appendChild(row);
             });
             
-            if (data.length > limit) {
-                // Add "Show More" indicator if needed, or simply let user search to see specific results
-                // For simplicity, we just stop rendering to save DOM performance on mobile
+            if (loadMoreContainer) {
+                if (data.length > limit) {
+                    loadMoreContainer.classList.remove('d-none');
+                } else {
+                    loadMoreContainer.classList.add('d-none');
+                }
             }
         }
 
@@ -399,13 +417,78 @@
             });
             
             // If searching, show more results. If viewing all, limit to top 100 to prevent lag.
-            const limit = searchTerm ? 500 : 100;
-            renderData(filtered, limit);
+            currentLimit = searchTerm ? 500 : 100;
+            renderData(filtered, currentLimit);
+        }
+        
+        // Excel Download feature
+        function downloadExcel() {
+            const workbook = XLSX.utils.book_new();
+
+            // 1. All Data Sheet
+            const allData = rawData.map(item => ({
+                '総合順位': item.global_rank,
+                'チャンネル': item.Server,
+                'チャンネル順位': item.rank,
+                'グループ': item.guild || '',
+                'プレイヤー名': item.name || '',
+                'RANK': item.level,
+                '総合力': item.power
+            }));
+            
+            const wsAll = XLSX.utils.json_to_sheet(allData);
+            
+            // Set Column Widths
+            const cols = [
+                { wch: 10 }, // 総合順位
+                { wch: 10 }, // チャンネル
+                { wch: 16 }, // チャンネル順位
+                { wch: 22 }, // グループ
+                { wch: 28 }, // プレイヤー名
+                { wch: 10 }, // RANK
+                { wch: 15 }  // 総合力
+            ];
+            wsAll['!cols'] = cols;
+            XLSX.utils.book_append_sheet(workbook, wsAll, 'All');
+
+            // 2. Individual Server Sheets
+            const servers = [...new Set(rawData.map(item => item.Server))].sort((a,b) => a - b);
+            
+            servers.forEach(server => {
+                const serverData = rawData.filter(item => item.Server === server).map(item => ({
+                    '総合順位': item.global_rank,
+                    'チャンネル': item.Server,
+                    'チャンネル順位': item.rank,
+                    'グループ': item.guild || '',
+                    'プレイヤー名': item.name || '',
+                    'RANK': item.level,
+                    '総合力': item.power
+                }));
+                
+                const wsServer = XLSX.utils.json_to_sheet(serverData);
+                wsServer['!cols'] = cols;
+                XLSX.utils.book_append_sheet(workbook, wsServer, `CH${String(server).padStart(2, '0')}`);
+            });
+
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '').substring(0, 15); // e.g., 2026-02-20T2045
+            let filename = `allCH_player_ranking_export_${timestamp}.xlsx`;
+
+            // 3. Trigger download
+            XLSX.writeFile(workbook, filename);
         }
 
         // Listeners
         document.getElementById('searchInput').addEventListener('input', filterData);
         document.getElementById('serverFilter').addEventListener('change', filterData);
+        if (document.getElementById('downloadExcelBtn')) {
+            document.getElementById('downloadExcelBtn').addEventListener('click', downloadExcel);
+        }
+        if (document.getElementById('loadMoreBtn')) {
+            document.getElementById('loadMoreBtn').addEventListener('click', () => {
+                currentLimit += 100;
+                renderData(currentData, currentLimit);
+            });
+        }
 
         // Initial Render
         renderData(rawData);
