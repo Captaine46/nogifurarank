@@ -29,6 +29,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - **乃木坂46配色**: 網頁與 X 圖片統一改為紫色、紅紫與淡紫配色。
 - **X 圖表欄寬**: 收窄メンバーカード欄位留白，LR／UR／SSR 徽章恢復遊戲內辨識色。
 
+### Fixed
+
+- **全CHプレイヤー数**: 玩家數改用 `world_id + player_id` 複合鍵，避免同一帳號在不同 CH 的角色被錯誤合併。
+
 ## [1.0.0] - 2026-02-16
 
 ### Added

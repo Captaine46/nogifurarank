@@ -274,12 +274,12 @@ def aggregateDecks(decks: Iterable[Dict[str, Any]]) -> Dict[str, Any]:
     memoriaCounts: Dict[Any, Dict[str, Any]] = {}
     personalCounts: Dict[Any, Dict[str, Any]] = {}
     mainUnitTypeCounts = {unitType: 0 for unitType in UNIT_TYPE_LABELS}
-    playerIds = set()
+    playerKeys = set()
 
     for deckIndex, deck in enumerate(deckList):
         playerId = deck.get("playerId")
         if playerId is not None:
-            playerIds.add(playerId)
+            playerKeys.add((deck.get("worldId"), playerId))
         mainUnitType = (deck.get("mainUnit") or {}).get("unitType")
         if mainUnitType in mainUnitTypeCounts:
             mainUnitTypeCounts[mainUnitType] += 1
@@ -403,7 +403,7 @@ def aggregateDecks(decks: Iterable[Dict[str, Any]]) -> Dict[str, Any]:
     ]
     return {
         "deckCount": deckCount,
-        "playerCount": len(playerIds) if playerIds else deckCount,
+        "playerCount": len(playerKeys) if playerKeys else deckCount,
         "cardSlotCapacity": deckCount * 11,
         "memoriaSlotCapacity": deckCount * 4,
         "personalMemoriaSlotCapacity": deckCount * 11,

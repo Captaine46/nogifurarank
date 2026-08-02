@@ -250,6 +250,28 @@ def test_cards_sort_by_deck_adoption_before_duplicate_slots():
     assert [row["avatarId"] for row in stats["cards"]] == [2, 1]
 
 
+def test_player_count_uses_world_and_player_id_as_compound_key():
+    decks = [
+        {
+            "worldId": 1,
+            "playerId": "shared-account",
+            "subUnits": [],
+            "memorias": [],
+        },
+        {
+            "worldId": 2,
+            "playerId": "shared-account",
+            "subUnits": [],
+            "memorias": [],
+        },
+    ]
+
+    stats = pvp.aggregateDecks(decks)
+
+    assert stats["deckCount"] == 2
+    assert stats["playerCount"] == 2
+
+
 def test_build_summary_keeps_attack_and_defense_separate():
     base = {
         "subUnits": [],
