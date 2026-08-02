@@ -17,7 +17,8 @@ from nogifura_card_release_index import ensureCardReleaseIndex
 
 WIDTH = 2000
 HEIGHT = 2600
-FOCUS_HEIGHT = 1500
+FOCUS_MIN_HEIGHT = 1500
+FOCUS_ROW_HEIGHT = 136
 DEFAULT_SNAPSHOT_DIR = Path("pvp_usage_output") / datetime.now().strftime("%Y%m%d")
 DEFAULT_MASTERDATA_DIR = Path(r"E:\APK\nogifura\masterdata_export")
 FONT_REGULAR = Path(r"C:\Windows\Fonts\YuGothM.ttc")
@@ -281,7 +282,8 @@ def renderNewFocusCard(
     months: int = 6,
     minRate: float = 5.0,
 ) -> None:
-    image = Image.new("RGB", (WIDTH, FOCUS_HEIGHT), "#F7F2F8")
+    focusHeight = max(FOCUS_MIN_HEIGHT, 454 + len(rows) * FOCUS_ROW_HEIGHT)
+    image = Image.new("RGB", (WIDTH, focusHeight), "#F7F2F8")
     draw = ImageDraw.Draw(image)
     ink = "#241A26"
     muted = "#756879"
@@ -314,7 +316,7 @@ def renderNewFocusCard(
     )
 
     top = 278
-    bottom = FOCUS_HEIGHT - 72
+    bottom = focusHeight - 72
     draw.rounded_rectangle((38, top, WIDTH - 38, bottom), 22, fill=paper)
     cardX, releaseX = 88, 940
     rateXs = (1180, 1370, 1580, 1770)
@@ -381,7 +383,7 @@ def renderNewFocusCard(
         draw.line((39, y + rowHeight, WIDTH - 39, y + rowHeight), fill=line, width=1)
 
     draw.text(
-        (54, FOCUS_HEIGHT - 45),
+        (54, focusHeight - 45),
         f"判定：初回登場から{months}か月以内、かつ4区分のいずれかで編成採用率 {minRate:g}%以上　※所持率ではありません",
         font=smallFont,
         fill=muted,
@@ -398,7 +400,7 @@ def parseArgs(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
     parser.add_argument("--masterdata-dir", type=Path, default=DEFAULT_MASTERDATA_DIR)
     parser.add_argument("--release-index", type=Path)
     parser.add_argument("--top", type=int, default=50)
-    parser.add_argument("--focus-months", type=int, default=6)
+    parser.add_argument("--focus-months", type=int, nargs="+", default=[6, 12])
     parser.add_argument("--focus-min-rate", type=float, default=5.0)
     return parser.parse_args(argv)
 
@@ -408,7 +410,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     if args.top < 1 or args.top > 50:
         print("[エラー] top は1～50で指定してください", file=sys.stderr)
         return 2
-    if args.focus_months < 1 or args.focus_min_rate <= 0:
+    if any(months < 1 for months in args.focus_months) or args.focus_min_rate <= 0:
         print("[エラー] focus-months と focus-min-rate は正数で指定してください", file=sys.stderr)
         return 2
     try:
@@ -450,22 +452,27 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             f"[登場日時索引] {releaseIndexPath}"
             f"（{'更新' if refreshed else 'キャッシュ使用'}）"
         )
-        focusRows = selectNewFocusCards(
-            summary,
-            releaseIndex.get("cards") or [],
-            months=args.focus_months,
-            minRate=args.focus_min_rate,
-        )
-        focusOutput = outputDir / "x-new-focus-6months-5pct.png"
-        renderNewFocusCard(
-            rows=focusRows,
-            snapshotDir=args.snapshot_dir,
-            outputPath=focusOutput,
-            generatedAt=summary.get("generatedAt"),
-            months=args.focus_months,
-            minRate=args.focus_min_rate,
-        )
-        print(f"[出力] {focusOutput}（{len(focusRows)}枚）")
+        rateSlug = f"{args.focus_min_rate:g}".replace(".", "p")
+        for focusMonths in dict.fromkeys(args.focus_months):
+            focusRows = selectNewFocusCards(
+                summary,
+                releaseIndex.get("cards") or [],
+                months=focusMonths,
+                minRate=args.focus_min_rate,
+            )
+            focusOutput = (
+                outputDir
+                / f"x-new-focus-{focusMonths}months-{rateSlug}pct.png"
+            )
+            renderNewFocusCard(
+                rows=focusRows,
+                snapshotDir=args.snapshot_dir,
+                outputPath=focusOutput,
+                generatedAt=summary.get("generatedAt"),
+                months=focusMonths,
+                minRate=args.focus_min_rate,
+            )
+            print(f"[出力] {focusOutput}（{len(focusRows)}枚）")
     except (RuntimeError, OSError, ValueError) as exc:
         print(f"[エラー] {exc}", file=sys.stderr)
         return 1

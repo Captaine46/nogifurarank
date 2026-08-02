@@ -107,7 +107,7 @@ def test_render_new_focus_card_writes_png(tmp_path):
         assert image.format == "PNG"
 
 
-def test_main_creates_four_rank_images_and_one_focus_image(tmp_path):
+def test_main_creates_four_rank_images_and_two_focus_images(tmp_path):
     snapshot = tmp_path / "snapshot"
     snapshot.mkdir()
     card = {
@@ -152,5 +152,31 @@ def test_main_creates_four_rank_images_and_one_focus_image(tmp_path):
     )
 
     assert result == 0
-    assert len(list(output.glob("*.png"))) == 5
+    assert len(list(output.glob("*.png"))) == 6
     assert (output / "x-new-focus-6months-5pct.png").exists()
+    assert (output / "x-new-focus-12months-5pct.png").exists()
+
+
+def test_twelve_month_focus_image_expands_for_more_rows(tmp_path):
+    output = tmp_path / "focus-12months.png"
+    rows = [
+        {
+            "name": f"card-{index}",
+            "rarity": "LR",
+            "releasedAt": "2026-01-01T17:00:00+09:00",
+            "rates": {"omitateDefense": 5.0},
+        }
+        for index in range(15)
+    ]
+
+    xcards.renderNewFocusCard(
+        rows=rows,
+        snapshotDir=tmp_path,
+        outputPath=output,
+        generatedAt="2026-07-12T07:05:52+09:00",
+        months=12,
+    )
+
+    with Image.open(output) as image:
+        assert image.width == 2000
+        assert image.height == 2494
