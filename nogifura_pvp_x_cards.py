@@ -57,6 +57,20 @@ def selectCardRows(stats: Dict[str, Any], top: int = 50) -> List[Dict[str, Any]]
     return [row for row in rows[:top] if isinstance(row, dict)]
 
 
+def attachReleaseDates(
+    rows: Sequence[Dict[str, Any]], releaseRows: Sequence[Dict[str, Any]]
+) -> List[Dict[str, Any]]:
+    releasedAtByAvatar = {
+        row.get("avatarId"): row.get("releasedAt")
+        for row in releaseRows
+        if isinstance(row, dict) and isinstance(row.get("avatarId"), int)
+    }
+    return [
+        {**row, "releasedAt": releasedAtByAvatar.get(row.get("avatarId"))}
+        for row in rows
+    ]
+
+
 def _subtractCalendarMonths(value: datetime, months: int) -> datetime:
     totalMonths = value.year * 12 + value.month - 1 - months
     year, zeroBasedMonth = divmod(totalMonths, 12)
@@ -220,10 +234,17 @@ def renderXCard(
 
     headerY = 285
     draw.rounded_rectangle((38, headerY, WIDTH - 38, HEIGHT - 54), 22, fill=paper)
-    labels = [(72, "順位"), (210, "メンバーカード"), (800, "レア"), (930, "採用数"), (1060, "採用率")]
+    labels = [
+        (72, "順位"),
+        (210, "メンバーカード"),
+        (800, "レア"),
+        (900, "初回登場"),
+        (1090, "採用数"),
+        (1240, "採用率"),
+    ]
     for x, label in labels:
         draw.text((x, headerY + 20), label, font=smallFont, fill=muted)
-    barLeft, barRight = 1200, 1920
+    barLeft, barRight = 1450, 1920
     draw.text((barLeft, headerY + 20), "0%", font=smallFont, fill=muted)
     axisText = f"{axisMax}%"
     draw.text((barRight - draw.textlength(axisText, font=smallFont), headerY + 20), axisText, font=smallFont, fill=muted)
@@ -249,11 +270,12 @@ def renderXCard(
         draw.rounded_rectangle((790, y + 7, 870, y + 37), 12, fill=rarityFill)
         rarityWidth = draw.textlength(rarity, font=smallFont)
         draw.text((830 - rarityWidth / 2, y + 11), rarity, font=smallFont, fill=rarityInk)
+        draw.text((895, y + 11), _japanDate(row.get("releasedAt")), font=smallFont, fill=ink)
         countText = f"{int(row.get('deckCount') or 0):,}"
-        draw.text((1035 - draw.textlength(countText, font=rowFont), y + 11), countText, font=rowFont, fill=ink)
+        draw.text((1190 - draw.textlength(countText, font=rowFont), y + 11), countText, font=rowFont, fill=ink)
         rate = float(row.get("deckUsageRate") or 0)
         rateText = f"{rate:.2f}%"
-        draw.text((1160 - draw.textlength(rateText, font=rowFont), y + 11), rateText, font=rowFont, fill=ink)
+        draw.text((1400 - draw.textlength(rateText, font=rowFont), y + 11), rateText, font=rowFont, fill=ink)
         barY = y + 15
         draw.rounded_rectangle((barLeft, barY, barRight, barY + 14), 7, fill="#E5E1D5")
         fillRight = barLeft + int((barRight - barLeft) * min(rate, axisMax) / axisMax)
@@ -416,6 +438,17 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     try:
         summary = readJson(args.snapshot_dir / "summary.json")
         outputDir = args.output_dir or (args.snapshot_dir / "x_cards")
+        releaseIndexPath = args.release_index or (
+            args.snapshot_dir.parent / "card_release_index.json"
+        )
+        releaseIndex, refreshed = ensureCardReleaseIndex(
+            args.masterdata_dir, releaseIndexPath
+        )
+        releaseRows = releaseIndex.get("cards") or []
+        print(
+            f"[登場日時索引] {releaseIndexPath}"
+            f"（{'更新' if refreshed else 'キャッシュ使用'}）"
+        )
         allRates = []
         for dataset in DATASETS:
             scopes = summary.get("datasets", {}).get(dataset, {}).get("scopes", {})
@@ -431,7 +464,9 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                 stats = scopes.get("all", {}).get(mode, {})
                 output = outputDir / f"{prefix}-{mode}-top{args.top}.png"
                 renderXCard(
-                    rows=selectCardRows(stats, args.top),
+                    rows=attachReleaseDates(
+                        selectCardRows(stats, args.top), releaseRows
+                    ),
                     snapshotDir=args.snapshot_dir,
                     outputPath=output,
                     sourceTitle=sourceTitle,
@@ -442,16 +477,6 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                     top=args.top,
                 )
                 print(f"[出力] {output}")
-        releaseIndexPath = args.release_index or (
-            args.snapshot_dir.parent / "card_release_index.json"
-        )
-        releaseIndex, refreshed = ensureCardReleaseIndex(
-            args.masterdata_dir, releaseIndexPath
-        )
-        print(
-            f"[登場日時索引] {releaseIndexPath}"
-            f"（{'更新' if refreshed else 'キャッシュ使用'}）"
-        )
         rateSlug = f"{args.focus_min_rate:g}".replace(".", "p")
         for focusMonths in dict.fromkeys(args.focus_months):
             focusRows = selectNewFocusCards(

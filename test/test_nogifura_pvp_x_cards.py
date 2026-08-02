@@ -26,6 +26,22 @@ def test_select_card_rows_limits_to_top_50():
     assert rows[-1]["name"] == "card-49"
 
 
+def test_attach_release_dates_matches_avatar_id():
+    rows = [
+        {"avatarId": 10, "name": "known"},
+        {"avatarId": 11, "name": "unknown"},
+    ]
+    releases = [
+        {"avatarId": 10, "releasedAt": "2026-07-01T17:00:00+09:00"}
+    ]
+
+    result = xcards.attachReleaseDates(rows, releases)
+
+    assert result[0]["releasedAt"] == "2026-07-01T17:00:00+09:00"
+    assert result[1]["releasedAt"] is None
+    assert "releasedAt" not in rows[0]
+
+
 def test_render_x_card_writes_2000_by_2600_png(tmp_path):
     icon = tmp_path / "icon.png"
     Image.new("RGB", (80, 80), "purple").save(icon)
@@ -36,6 +52,7 @@ def test_render_x_card_writes_2000_by_2600_png(tmp_path):
             "deckCount": 55,
             "deckUsageRate": 55.0,
             "image": "icon.png",
+            "releasedAt": "2026-05-21T17:00:00+09:00",
         }
     ]
     output = tmp_path / "card.png"

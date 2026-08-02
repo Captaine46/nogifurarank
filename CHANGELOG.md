@@ -28,6 +28,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - **作成日**: 報表與 X 圖固定以日本日期顯示，只保留 `YYYY/MM/DD`，不顯示時、分、秒。
 - **乃木坂46配色**: 網頁與 X 圖片統一改為紫色、紅紫與淡紫配色。
 - **X 圖表欄寬**: 收窄メンバーカード欄位留白，LR／UR／SSR 徽章恢復遊戲內辨識色。
+- **TOP50初回登場**: TOP50 圖新增卡片初回登場日期，並縮短採用率橫條以騰出日期欄位。
 
 ### Fixed
 

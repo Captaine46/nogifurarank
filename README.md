@@ -126,7 +126,8 @@ python nogifura_pvp_x_cards.py --snapshot-dir pvp_usage_output/20260711
 
 輸出到 snapshot 的 `x_cards/`，內容為「お見立て会 TOP20／個人ランキング
 TOP75」各自的防衛編成與攻撃編成メンバーカード採用率 TOP50。四張圖使用
-相同百分比刻度與乃木坂46紫色系，適合放在同一則 X 貼文比較。
+相同百分比刻度與乃木坂46紫色系，並從本地日期索引顯示每張卡的「初回登場」。
+採用率橫條採用較短的比較區，適合放在同一則 X 貼文比較。
 
 `x-new-focus-6months-5pct.png` 與 `x-new-focus-12months-5pct.png` 以排名快照的
 日本時間為基準，分別列出初回登場六個月／一年內、且「お見立て会 TOP20／
