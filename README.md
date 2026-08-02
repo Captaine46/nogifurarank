@@ -48,6 +48,16 @@ python refresh_nogifura_auth.py --dry-run
 
 ### お見立て会 TOP20／個人ランキング使用率
 
+通常は `update_pvp_usage.bat` をダブルクリックすると、内部で
+`update_pvp_usage.py` を起動し、カード登場日時索引、
+全40 CHの低速取得、HTML、TOP50画像、直近6か月／12か月画像まで一括で更新する。
+同じ日付で再実行すると保存済みJSONを再利用し、不足分だけ続行する。実行中の
+重複起動も防止する。コマンドラインから日付を固定する場合：
+
+```bat
+update_pvp_usage.bat 20260802
+```
+
 `nogifura_pvp_usage.py` 會從同一份 APK 加密認證備份換發 token，抓取
 CH01～CH40 的 `/api/pvp/ranking` 前 20 名，再以
 `/api/player/detail` 與 `/api/player/detail/deck` 取得玩家資料：
