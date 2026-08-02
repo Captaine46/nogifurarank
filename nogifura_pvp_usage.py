@@ -1120,7 +1120,7 @@ def renderHtml(index: Dict[str, Any], summary: Dict[str, Any]) -> str:
 <main class="shell">
   <section class="hero">
     <div><div class="eyebrow">乃木坂的フラクタル · 編成採用率</div><h1>お見立て会</h1><p>お見立て会 TOP20 と個人ランキングは別集計です。防衛編成と攻撃編成も混在させず、LR／UR／SSR など同じメンバーのカード別に採用率を集計します。</p></div>
-    <div class="stamp"><div>データ作成日（日本時間）</div><strong id="generated-at">—</strong><div id="coverage-text"></div></div>
+    <div class="stamp"><div>データ作成日</div><strong id="generated-at">—</strong><div id="coverage-text"></div></div>
   </section>
   <div id="warning" class="warning"></div>
   <section class="dataset-switch" aria-label="ランキング種別">

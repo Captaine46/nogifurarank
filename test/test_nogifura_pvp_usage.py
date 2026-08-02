@@ -351,7 +351,8 @@ def test_render_html_escapes_embedded_player_text():
     assert "プレイヤーIDや認証情報は表示しません" not in html
     assert "RANK お見立て会" not in html
     assert "<h1>お見立て会</h1>" in html
-    assert "データ作成日（日本時間）" in html
+    assert "データ作成日" in html
+    assert "日本時間" not in html
     assert "timeZone:'Asia/Tokyo'" in html
     assert "hour:'2-digit'" not in html
     assert "minute:'2-digit'" not in html
