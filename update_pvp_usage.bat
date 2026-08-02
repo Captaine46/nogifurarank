@@ -1,5 +1,6 @@
 @echo off
 setlocal
+chcp 65001 > nul
 cd /d "%~dp0"
 set "PYTHON=c:\Users\aelin\AppData\Local\Programs\Python\Python39\python.exe"
 set "PYTHONUTF8=1"
