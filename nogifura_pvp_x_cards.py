@@ -34,6 +34,17 @@ DATASETS = {
     "pvp": ("お見立て会 TOP20", "x-omitate-top20"),
     "personal": ("個人ランキング TOP75", "x-personal-top75"),
 }
+TOP_COLUMN_CENTERS = {
+    "rank": 80,
+    "rarity": 175,
+    "release": 920,
+    "count": 1090,
+    "rate": 1285,
+}
+TOP_CARD_IMAGE_X = 235
+TOP_CARD_TEXT_X = 285
+TOP_BAR_LEFT = 1450
+TOP_BAR_RIGHT = 1920
 FOCUS_RATE_KEYS = (
     ("pvp", "defense", "omitateDefense"),
     ("pvp", "attack", "omitateAttack"),
@@ -164,6 +175,18 @@ def _fitText(draw: ImageDraw.ImageDraw, text: str, font: ImageFont.ImageFont, wi
     return text + suffix
 
 
+def _drawCenteredText(
+    draw: ImageDraw.ImageDraw,
+    centerX: int,
+    y: int,
+    text: str,
+    font: ImageFont.ImageFont,
+    fill: str,
+) -> None:
+    width = draw.textlength(str(text), font=font)
+    draw.text((centerX - width / 2, y), str(text), font=font, fill=fill)
+
+
 def _japanDate(value: Any) -> str:
     if not isinstance(value, str) or not value:
         return "—"
@@ -234,17 +257,23 @@ def renderXCard(
 
     headerY = 285
     draw.rounded_rectangle((38, headerY, WIDTH - 38, HEIGHT - 54), 22, fill=paper)
-    labels = [
-        (72, "順位"),
-        (210, "メンバーカード"),
-        (800, "レア"),
-        (900, "初回登場"),
-        (1090, "採用数"),
-        (1240, "採用率"),
-    ]
-    for x, label in labels:
-        draw.text((x, headerY + 20), label, font=smallFont, fill=muted)
-    barLeft, barRight = 1450, 1920
+    for key, label in (
+        ("rank", "順位"),
+        ("rarity", "レア"),
+        ("release", "初回登場"),
+        ("count", "採用数"),
+        ("rate", "採用率"),
+    ):
+        _drawCenteredText(
+            draw,
+            TOP_COLUMN_CENTERS[key],
+            headerY + 20,
+            label,
+            smallFont,
+            muted,
+        )
+    draw.text((TOP_CARD_IMAGE_X, headerY + 20), "メンバーカード", font=smallFont, fill=muted)
+    barLeft, barRight = TOP_BAR_LEFT, TOP_BAR_RIGHT
     draw.text((barLeft, headerY + 20), "0%", font=smallFont, fill=muted)
     axisText = f"{axisMax}%"
     draw.text((barRight - draw.textlength(axisText, font=smallFont), headerY + 20), axisText, font=smallFont, fill=muted)
@@ -256,26 +285,60 @@ def renderXCard(
         y = rowTop + (rank - 1) * rowHeight
         if rank % 2 == 0:
             draw.rectangle((39, y, WIDTH - 39, y + rowHeight), fill="#F6EDF8")
-        draw.text((82, y + 11), str(rank), font=rowFont, fill=ink)
+        _drawCenteredText(
+            draw, TOP_COLUMN_CENTERS["rank"], y + 11, str(rank), rowFont, ink
+        )
+        rarity = str(row.get("rarity") or "—")
+        rarityFill, rarityInk = RARITY_COLORS.get(rarity, ("#E8E1E9", ink))
+        rarityLeft, rarityRight = 135, 215
+        draw.rounded_rectangle((rarityLeft, y + 7, rarityRight, y + 37), 12, fill=rarityFill)
+        _drawCenteredText(
+            draw,
+            TOP_COLUMN_CENTERS["rarity"],
+            y + 11,
+            rarity,
+            smallFont,
+            rarityInk,
+        )
         thumb = _thumbnail(Path(snapshotDir), row.get("image"))
         if thumb is not None:
             thumb.thumbnail((36, 36), Image.Resampling.LANCZOS)
-            image.paste(thumb, (142, y + 4))
+            image.paste(thumb, (TOP_CARD_IMAGE_X, y + 4))
         else:
-            draw.rounded_rectangle((142, y + 4, 178, y + 40), 7, fill="#EADFED")
-        name = _fitText(draw, str(row.get("name") or "—"), rowFont, 545)
-        draw.text((210, y + 11), name, font=rowFont, fill=ink)
-        rarity = str(row.get("rarity") or "—")
-        rarityFill, rarityInk = RARITY_COLORS.get(rarity, ("#E8E1E9", ink))
-        draw.rounded_rectangle((790, y + 7, 870, y + 37), 12, fill=rarityFill)
-        rarityWidth = draw.textlength(rarity, font=smallFont)
-        draw.text((830 - rarityWidth / 2, y + 11), rarity, font=smallFont, fill=rarityInk)
-        draw.text((895, y + 11), _japanDate(row.get("releasedAt")), font=smallFont, fill=ink)
+            draw.rounded_rectangle(
+                (TOP_CARD_IMAGE_X, y + 4, TOP_CARD_IMAGE_X + 36, y + 40),
+                7,
+                fill="#EADFED",
+            )
+        name = _fitText(draw, str(row.get("name") or "—"), rowFont, 520)
+        draw.text((TOP_CARD_TEXT_X, y + 11), name, font=rowFont, fill=ink)
+        _drawCenteredText(
+            draw,
+            TOP_COLUMN_CENTERS["release"],
+            y + 11,
+            _japanDate(row.get("releasedAt")),
+            smallFont,
+            ink,
+        )
         countText = f"{int(row.get('deckCount') or 0):,}"
-        draw.text((1190 - draw.textlength(countText, font=rowFont), y + 11), countText, font=rowFont, fill=ink)
+        _drawCenteredText(
+            draw,
+            TOP_COLUMN_CENTERS["count"],
+            y + 11,
+            countText,
+            rowFont,
+            ink,
+        )
         rate = float(row.get("deckUsageRate") or 0)
         rateText = f"{rate:.2f}%"
-        draw.text((1400 - draw.textlength(rateText, font=rowFont), y + 11), rateText, font=rowFont, fill=ink)
+        _drawCenteredText(
+            draw,
+            TOP_COLUMN_CENTERS["rate"],
+            y + 11,
+            rateText,
+            rowFont,
+            ink,
+        )
         barY = y + 15
         draw.rounded_rectangle((barLeft, barY, barRight, barY + 14), 7, fill="#E5E1D5")
         fillRight = barLeft + int((barRight - barLeft) * min(rate, axisMax) / axisMax)

@@ -12,6 +12,12 @@ def test_rarity_colors_keep_game_palette():
     assert xcards.RARITY_COLORS["SSR"][0] == "#FFE0CC"
 
 
+def test_top_chart_places_rarity_before_member_card_and_keeps_short_bar():
+    assert xcards.TOP_COLUMN_CENTERS["rarity"] < xcards.TOP_CARD_IMAGE_X
+    assert xcards.TOP_CARD_IMAGE_X < xcards.TOP_CARD_TEXT_X
+    assert xcards.TOP_BAR_RIGHT - xcards.TOP_BAR_LEFT == 470
+
+
 def test_japan_date_omits_time():
     assert xcards._japanDate("2026-08-02T15:54:29+00:00") == "2026/08/03"
 
