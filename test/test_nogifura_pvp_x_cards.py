@@ -12,6 +12,10 @@ def test_rarity_colors_keep_game_palette():
     assert xcards.RARITY_COLORS["SSR"][0] == "#FFE0CC"
 
 
+def test_japan_date_omits_time():
+    assert xcards._japanDate("2026-08-02T15:54:29+00:00") == "2026/08/03"
+
+
 def test_select_card_rows_limits_to_top_50():
     stats = {"cards": [{"name": f"card-{i}"} for i in range(60)]}
 

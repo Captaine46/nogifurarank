@@ -150,12 +150,12 @@ def _fitText(draw: ImageDraw.ImageDraw, text: str, font: ImageFont.ImageFont, wi
     return text + suffix
 
 
-def _japanTime(value: Any) -> str:
+def _japanDate(value: Any) -> str:
     if not isinstance(value, str) or not value:
         return "—"
     try:
         parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
-        return parsed.astimezone(ZoneInfo("Asia/Tokyo")).strftime("%Y/%m/%d %H:%M")
+        return parsed.astimezone(ZoneInfo("Asia/Tokyo")).strftime("%Y/%m/%d")
     except ValueError:
         return "—"
 
@@ -213,7 +213,7 @@ def renderXCard(
     )
     draw.text(
         (54, 214),
-        f"40 CH・{deckCount:,}編成　作成日時 { _japanTime(generatedAt) }（日本時間）",
+        f"40 CH・{deckCount:,}編成　作成日 {_japanDate(generatedAt)}（日本時間）",
         font=smallFont,
         fill=muted,
     )
@@ -310,7 +310,7 @@ def renderNewFocusCard(
     )
     draw.text(
         (54, 216),
-        f"40 CH集計　基準日時 {_japanTime(generatedAt)}（日本時間）",
+        f"40 CH集計　基準日 {_japanDate(generatedAt)}（日本時間）",
         font=smallFont,
         fill=muted,
     )
