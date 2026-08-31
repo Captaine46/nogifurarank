@@ -45,7 +45,7 @@ BAT 會依序完成三件事：
 
 1. 更新 `pvp_usage_output\card_release_index.json` 的メンバーカード初回登場日期。
 2. 低速取得全 40 CH 的お見立て会 TOP20、個人ランキング TOP75、攻撃編成與防衛編成，並建立 `index.json`、`summary.json`、`report.html`。
-3. 從 `summary.json` 產生四張 TOP50 圖及半年／一年新登場注目卡圖片。
+3. 從 `summary.json` 產生四張 TOP50 圖、四張前月比圖及半年／一年新登場注目卡圖片。
 
 預設使用：
 
@@ -179,16 +179,40 @@ $env:PYTHONIOENCODING = 'utf-8'
 pvp_usage_output\20260901\x_cards\
 ```
 
-會建立六張 PNG：
+前一月份有完整快照時，會建立十張 PNG：
 
 1. `x-omitate-top20-defense-top50.png`
 2. `x-omitate-top20-attack-top50.png`
 3. `x-personal-top75-defense-top50.png`
 4. `x-personal-top75-attack-top50.png`
-5. `x-new-focus-6months-5pct.png`
-6. `x-new-focus-12months-5pct.png`
+5. `x-omitate-top20-defense-monthly-change.png`
+6. `x-omitate-top20-attack-monthly-change.png`
+7. `x-personal-top75-defense-monthly-change.png`
+8. `x-personal-top75-attack-monthly-change.png`
+9. `x-new-focus-6months-5pct.png`
+10. `x-new-focus-12months-5pct.png`
 
-前四張是メンバーカード編成採用率 TOP50。後兩張分別整理半年／一年內初回登場，且四種區分中任一編成採用率達 5% 的卡片。
+前四張是メンバーカード編成採用率 TOP50。第 5～8 張是前月比圖片：左側顯示採用率上昇 TOP25，右側顯示低下 TOP25。每月欄位同時列出採用率與採用編成数；増減欄上段是實際増減編成数，下段是採用率差。後兩張分別整理半年／一年內初回登場，且四種區分中任一編成採用率達 5% 的卡片。
+
+程式會依 `generatedAt` 自動尋找「緊鄰前一個月份」日期最新的快照。例如 `20260901` 會尋找 2026 年 8 月的快照。若要明確指定比較來源：
+
+```powershell
+& 'c:\Users\aelin\AppData\Local\Programs\Python\Python39\python.exe' -u .\nogifura_pvp_x_cards.py `
+  --snapshot-dir .\pvp_usage_output\20260901 `
+  --previous-snapshot-dir .\pvp_usage_output\20260802 `
+  --top 50 `
+  --comparison-top 25
+```
+
+月比的増減欄會同時顯示實際編成数與採用率差：
+
+```text
+前月 256編成／32.00%
+今月 309編成／38.62%
+増減 +53／+6.62%
+```
+
+`新規` 只表示前月採用實績為零／沒有出現在前月統計，不表示該卡一定是新登場卡。若前一月份沒有可用快照，月比圖片會自動略過，其餘六張圖片仍正常建立。
 
 ## 7. 只重建圖片的最短流程
 

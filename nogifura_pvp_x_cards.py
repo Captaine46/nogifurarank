@@ -82,6 +82,140 @@ def attachReleaseDates(
     ]
 
 
+def _parseDateTime(value: Any) -> Optional[datetime]:
+    if not isinstance(value, str) or not value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=ZoneInfo("Asia/Tokyo"))
+    return parsed.astimezone(ZoneInfo("Asia/Tokyo"))
+
+
+def _supportsMonthlyComparison(summary: Dict[str, Any]) -> bool:
+    datasets = summary.get("datasets") or {}
+    for dataset in DATASETS:
+        allScope = (
+            datasets.get(dataset, {}).get("scopes", {}).get("all", {})
+        )
+        for mode in MODE_LABELS:
+            stats = allScope.get(mode) or {}
+            if int(stats.get("deckCount") or 0) < 1 or not isinstance(
+                stats.get("cards"), list
+            ):
+                return False
+    return True
+
+
+def findPreviousMonthSnapshot(
+    snapshotDir: Path, currentGeneratedAt: Any
+) -> Optional[Path]:
+    """Find the latest valid snapshot from the immediately preceding month."""
+
+    currentDate = _parseDateTime(currentGeneratedAt)
+    if currentDate is None:
+        return None
+    if currentDate.month == 1:
+        previousYear, previousMonth = currentDate.year - 1, 12
+    else:
+        previousYear, previousMonth = currentDate.year, currentDate.month - 1
+
+    snapshotDir = Path(snapshotDir)
+    candidates = []
+    try:
+        siblings = snapshotDir.parent.iterdir()
+    except OSError:
+        return None
+    for candidate in siblings:
+        if not candidate.is_dir() or candidate.resolve() == snapshotDir.resolve():
+            continue
+        summaryPath = candidate / "summary.json"
+        if not summaryPath.is_file():
+            continue
+        try:
+            candidateSummary = readJson(summaryPath)
+        except RuntimeError:
+            continue
+        if not _supportsMonthlyComparison(candidateSummary):
+            continue
+        candidateDate = _parseDateTime(candidateSummary.get("generatedAt"))
+        if candidateDate is None:
+            continue
+        if (candidateDate.year, candidateDate.month) == (previousYear, previousMonth):
+            candidates.append((candidateDate, candidate))
+    return max(candidates, default=(None, None), key=lambda item: item[0])[1]
+
+
+def selectMonthlyComparisonRows(
+    currentStats: Dict[str, Any],
+    previousStats: Dict[str, Any],
+    limitPerDirection: int = 25,
+) -> Dict[str, List[Dict[str, Any]]]:
+    """Return the strongest adoption-rate rises and falls across both months."""
+
+    def cardMap(stats: Dict[str, Any]) -> Dict[int, Dict[str, Any]]:
+        result = {}
+        for rank, row in enumerate(stats.get("cards") or [], start=1):
+            if not isinstance(row, dict) or not isinstance(row.get("avatarId"), int):
+                continue
+            result[row["avatarId"]] = {**row, "sourceRank": rank}
+        return result
+
+    currentCards = cardMap(currentStats)
+    previousCards = cardMap(previousStats)
+    rises = []
+    falls = []
+    for avatarId in currentCards.keys() | previousCards.keys():
+        current = currentCards.get(avatarId)
+        previous = previousCards.get(avatarId)
+        currentRate = float((current or {}).get("deckUsageRate") or 0)
+        currentCount = int((current or {}).get("deckCount") or 0)
+        previousRate = (
+            float(previous.get("deckUsageRate") or 0) if previous is not None else None
+        )
+        previousCount = int((previous or {}).get("deckCount") or 0)
+        delta = round(currentRate - (previousRate or 0), 2)
+        if math.isclose(delta, 0.0, abs_tol=0.004):
+            continue
+        source = current or previous or {}
+        currentImage = current.get("image") if current else None
+        previousImage = previous.get("image") if previous else None
+        imageSource = "current" if currentImage else "previous"
+        row = {
+            "avatarId": avatarId,
+            "name": source.get("name") or "—",
+            "rarity": source.get("rarity") or "—",
+            "image": currentImage or previousImage,
+            "imageSource": imageSource,
+            "currentRate": currentRate,
+            "previousRate": previousRate,
+            "delta": delta,
+            "currentCount": currentCount,
+            "previousCount": previousCount,
+            "countDelta": currentCount - previousCount,
+            "currentRank": current.get("sourceRank") if current else None,
+            "previousRank": previous.get("sourceRank") if previous else None,
+            "isNew": previous is None,
+            "isDropped": current is None,
+        }
+        (rises if delta > 0 else falls).append(row)
+
+    rises.sort(key=lambda row: (-row["delta"], -row["currentRate"], row["name"]))
+    falls.sort(
+        key=lambda row: (
+            row["delta"],
+            row["currentRate"],
+            row["name"],
+        )
+    )
+    return {
+        "rises": rises[:limitPerDirection],
+        "falls": falls[:limitPerDirection],
+    }
+
+
 def _subtractCalendarMonths(value: datetime, months: int) -> datetime:
     totalMonths = value.year * 12 + value.month - 1 - months
     year, zeroBasedMonth = divmod(totalMonths, 12)
@@ -359,6 +493,169 @@ def renderXCard(
     image.save(outputPath, format="PNG", optimize=True)
 
 
+def renderMonthlyComparisonCard(
+    comparison: Dict[str, List[Dict[str, Any]]],
+    snapshotDir: Path,
+    previousSnapshotDir: Path,
+    outputPath: Path,
+    sourceTitle: str,
+    mode: str,
+    currentGeneratedAt: Any,
+    previousGeneratedAt: Any,
+    limitPerDirection: int = 25,
+) -> None:
+    """Render side-by-side month-over-month rise and fall rankings."""
+
+    if mode not in MODE_LABELS:
+        raise ValueError(f"unknown mode: {mode}")
+    image = Image.new("RGB", (WIDTH, HEIGHT), "#F7F2F8")
+    draw = ImageDraw.Draw(image)
+    accent = MODE_COLORS[mode]
+    riseColor = "#287A5C"
+    fallColor = "#B4465A"
+    risePaper = "#F0F8F4"
+    fallPaper = "#FCF2F4"
+    ink = "#241A26"
+    muted = "#756879"
+    line = "#E2D4E5"
+    titleFont = _font(62, bold=True)
+    subtitleFont = _font(34, bold=True)
+    bodyFont = _font(23)
+    headerFont = _font(20, bold=True)
+    rowFont = _font(17, bold=True)
+    smallFont = _font(16)
+    tinyFont = _font(14)
+
+    draw.rectangle((0, 0, WIDTH, 18), fill=accent)
+    draw.text((54, 50), "乃木坂的フラクタル", font=bodyFont, fill=accent)
+    draw.text((54, 88), sourceTitle, font=titleFont, fill=ink)
+    draw.text(
+        (54, 162),
+        f"{MODE_LABELS[mode]}｜メンバーカード採用数・採用率 前月比",
+        font=subtitleFont,
+        fill=ink,
+    )
+    draw.text(
+        (54, 214),
+        f"前月 {_japanDate(previousGeneratedAt)} → 今月 {_japanDate(currentGeneratedAt)}　各40 CH集計",
+        font=smallFont,
+        fill=muted,
+    )
+
+    panelTop = 282
+    panelBottom = HEIGHT - 72
+    panels = (
+        (38, 985, "rises", f"上昇 TOP{limitPerDirection}", riseColor, risePaper),
+        (1015, WIDTH - 38, "falls", f"低下 TOP{limitPerDirection}", fallColor, fallPaper),
+    )
+    for left, right, key, panelTitle, directionColor, paper in panels:
+        draw.rounded_rectangle((left, panelTop, right, panelBottom), 22, fill=paper)
+        draw.text((left + 24, panelTop + 20), panelTitle, font=headerFont, fill=directionColor)
+        headerY = panelTop + 70
+        rankCenter = left + 30
+        rarityLeft, rarityRight = left + 54, left + 112
+        thumbX = left + 122
+        nameX = left + 172
+        previousCenter = left + 610
+        currentCenter = left + 730
+        deltaCenter = left + 855
+        _drawCenteredText(draw, rankCenter, headerY, "#", smallFont, muted)
+        draw.text((rarityLeft, headerY), "レア", font=smallFont, fill=muted)
+        draw.text((nameX, headerY), "メンバーカード", font=smallFont, fill=muted)
+        _drawCenteredText(draw, previousCenter, headerY, "前月", smallFont, muted)
+        _drawCenteredText(draw, currentCenter, headerY, "今月", smallFont, muted)
+        _drawCenteredText(draw, deltaCenter, headerY, "増減", smallFont, muted)
+        draw.line((left, headerY + 34, right, headerY + 34), fill=line, width=2)
+
+        rows = comparison.get(key) or []
+        rowTop = headerY + 36
+        rowHeight = 82
+        if not rows:
+            message = "該当カードなし"
+            width = draw.textlength(message, font=headerFont)
+            draw.text(
+                ((left + right - width) / 2, rowTop + 80),
+                message,
+                font=headerFont,
+                fill=muted,
+            )
+        for rank, row in enumerate(rows[:limitPerDirection], start=1):
+            y = rowTop + (rank - 1) * rowHeight
+            if rank % 2 == 0:
+                stripe = "#E7F3ED" if key == "rises" else "#F8E6EA"
+                draw.rectangle((left + 1, y, right - 1, y + rowHeight), fill=stripe)
+            _drawCenteredText(draw, rankCenter, y + 29, str(rank), rowFont, ink)
+            rarity = str(row.get("rarity") or "—")
+            rarityFill, rarityInk = RARITY_COLORS.get(rarity, ("#E8E1E9", ink))
+            draw.rounded_rectangle(
+                (rarityLeft, y + 24, rarityRight, y + 56), 12, fill=rarityFill
+            )
+            _drawCenteredText(
+                draw,
+                (rarityLeft + rarityRight) // 2,
+                y + 29,
+                rarity,
+                smallFont,
+                rarityInk,
+            )
+            imageRoot = (
+                snapshotDir
+                if row.get("imageSource") == "current"
+                else previousSnapshotDir
+            )
+            thumb = _thumbnail(Path(imageRoot), row.get("image"), maxSize=46)
+            if thumb is not None:
+                image.paste(thumb, (thumbX, y + 18))
+            else:
+                draw.rounded_rectangle(
+                    (thumbX, y + 18, thumbX + 46, y + 64), 8, fill="#EADFED"
+                )
+            name = _fitText(draw, str(row.get("name") or "—"), rowFont, 410)
+            draw.text((nameX, y + 29), name, font=rowFont, fill=ink)
+            previousRate = row.get("previousRate")
+            previousRateText = (
+                "新規"
+                if row.get("isNew")
+                else f"{float(previousRate or 0):.2f}%"
+            )
+            previousCountText = f"{int(row.get('previousCount') or 0):,}編成"
+            currentRateText = f"{float(row.get('currentRate') or 0):.2f}%"
+            currentCountText = f"{int(row.get('currentCount') or 0):,}編成"
+            delta = float(row.get("delta") or 0)
+            countDelta = int(row.get("countDelta") or 0)
+            countDeltaText = f"{countDelta:+,}"
+            rateDeltaText = f"{delta:+.2f}%"
+            _drawCenteredText(
+                draw, previousCenter, y + 18, previousRateText, smallFont, ink
+            )
+            _drawCenteredText(
+                draw, previousCenter, y + 43, previousCountText, tinyFont, muted
+            )
+            _drawCenteredText(
+                draw, currentCenter, y + 18, currentRateText, smallFont, ink
+            )
+            _drawCenteredText(
+                draw, currentCenter, y + 43, currentCountText, tinyFont, muted
+            )
+            _drawCenteredText(
+                draw, deltaCenter, y + 17, countDeltaText, rowFont, directionColor
+            )
+            _drawCenteredText(
+                draw, deltaCenter, y + 43, rateDeltaText, tinyFont, directionColor
+            )
+            draw.line((left + 1, y + rowHeight, right - 1, y + rowHeight), fill=line)
+
+    draw.text(
+        (54, HEIGHT - 46),
+        "増減：上段＝採用編成数、下段＝採用率　新規＝前月の採用実績なし",
+        font=smallFont,
+        fill=muted,
+    )
+    outputPath = Path(outputPath)
+    outputPath.parent.mkdir(parents=True, exist_ok=True)
+    image.save(outputPath, format="PNG", optimize=True)
+
+
 def renderNewFocusCard(
     rows: Sequence[Dict[str, Any]],
     snapshotDir: Path,
@@ -485,6 +782,13 @@ def parseArgs(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
     parser.add_argument("--masterdata-dir", type=Path, default=DEFAULT_MASTERDATA_DIR)
     parser.add_argument("--release-index", type=Path)
     parser.add_argument("--top", type=int, default=50)
+    parser.add_argument(
+        "--previous-snapshot-dir",
+        type=Path,
+        help="前月比較に使うsnapshot（省略時は直前月の最新snapshotを自動選択）",
+    )
+    parser.add_argument("--comparison-top", type=int, default=25)
+    parser.add_argument("--skip-monthly-comparison", action="store_true")
     parser.add_argument("--focus-months", type=int, nargs="+", default=[6, 12])
     parser.add_argument("--focus-min-rate", type=float, default=5.0)
     return parser.parse_args(argv)
@@ -494,6 +798,9 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     args = parseArgs(argv)
     if args.top < 1 or args.top > 50:
         print("[エラー] top は1～50で指定してください", file=sys.stderr)
+        return 2
+    if args.comparison_top < 1 or args.comparison_top > 25:
+        print("[エラー] comparison-top は1～25で指定してください", file=sys.stderr)
         return 2
     if any(months < 1 for months in args.focus_months) or args.focus_min_rate <= 0:
         print("[エラー] focus-months と focus-min-rate は正数で指定してください", file=sys.stderr)
@@ -540,6 +847,49 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                     top=args.top,
                 )
                 print(f"[出力] {output}")
+        if not args.skip_monthly_comparison:
+            previousSnapshotDir = args.previous_snapshot_dir or findPreviousMonthSnapshot(
+                args.snapshot_dir, summary.get("generatedAt")
+            )
+            if previousSnapshotDir is None:
+                print("[前月比較] 直前月のsnapshotがないため比較画像をスキップ")
+            else:
+                previousSummary = readJson(previousSnapshotDir / "summary.json")
+                if not _supportsMonthlyComparison(previousSummary):
+                    raise RuntimeError(
+                        f"前月比較に必要な4区分が揃っていません：{previousSnapshotDir}"
+                    )
+                print(
+                    f"[前月比較] {previousSnapshotDir.name} → {args.snapshot_dir.name}"
+                )
+                for dataset, (sourceTitle, prefix) in DATASETS.items():
+                    currentScopes = (
+                        summary.get("datasets", {}).get(dataset, {}).get("scopes", {})
+                    )
+                    previousScopes = (
+                        previousSummary.get("datasets", {})
+                        .get(dataset, {})
+                        .get("scopes", {})
+                    )
+                    for mode in MODE_LABELS:
+                        comparison = selectMonthlyComparisonRows(
+                            currentScopes.get("all", {}).get(mode, {}),
+                            previousScopes.get("all", {}).get(mode, {}),
+                            args.comparison_top,
+                        )
+                        output = outputDir / f"{prefix}-{mode}-monthly-change.png"
+                        renderMonthlyComparisonCard(
+                            comparison=comparison,
+                            snapshotDir=args.snapshot_dir,
+                            previousSnapshotDir=previousSnapshotDir,
+                            outputPath=output,
+                            sourceTitle=sourceTitle,
+                            mode=mode,
+                            currentGeneratedAt=summary.get("generatedAt"),
+                            previousGeneratedAt=previousSummary.get("generatedAt"),
+                            limitPerDirection=args.comparison_top,
+                        )
+                        print(f"[出力] {output}")
         rateSlug = f"{args.focus_min_rate:g}".replace(".", "p")
         for focusMonths in dict.fromkeys(args.focus_months):
             focusRows = selectNewFocusCards(

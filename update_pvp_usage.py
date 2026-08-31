@@ -70,7 +70,7 @@ def buildSteps(
             ],
         ),
         (
-            "TOP50 and recent-card X images",
+            "TOP50, monthly comparison, and recent-card X images",
             [
                 "nogifura_pvp_x_cards.py",
                 "--snapshot-dir",
