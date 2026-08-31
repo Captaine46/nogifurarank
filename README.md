@@ -48,6 +48,10 @@ python refresh_nogifura_auth.py --dry-run
 
 ### お見立て会 TOP20／個人ランキング使用率
 
+完整操作、TOP75 完整性檢查、續抓方式、離線重建 HTML 與六張 PNG 的命令請參閱：
+
+- [PVP TOP75 使用率資料與圖片建立手冊](docs/PVP_USAGE_GUIDE.md)
+
 通常は `update_pvp_usage.bat` をダブルクリックすると、内部で
 `update_pvp_usage.py` を起動し、カード登場日時索引、
 全40 CHの低速取得、HTML、TOP50画像、直近6か月／12か月画像まで一括で更新する。
