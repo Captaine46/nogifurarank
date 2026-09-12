@@ -21,6 +21,20 @@
             
             --block-color-1: #ffffff;
             --block-color-2: #f8f0fc; /* Light Purple Tint */
+
+            /* Shared widths keep every four-row mobile table aligned. */
+            --mobile-table-width: 932px;
+            --mobile-rank-width: 52px;
+            --mobile-guild-width: 200px;
+            --mobile-world-width: 48px;
+            --mobile-final-pt-width: 80px;
+            --mobile-power-width: 128px;
+            --mobile-group-id-width: 64px;
+            --mobile-tour-id-width: 72px;
+            --mobile-group-rank-width: 64px;
+            --mobile-last-week-width: 80px;
+            --mobile-this-week-width: 80px;
+            --mobile-rank-pt-width: 64px;
         }
         body {
             background-color: var(--bg-color);
@@ -158,11 +172,23 @@
             -webkit-overflow-scrolling: touch;
         }
         .mobile-table {
-            width: 100%;
-            min-width: 600px; /* Ensure table is wide enough to scroll */
+            width: var(--mobile-table-width);
+            min-width: var(--mobile-table-width);
+            table-layout: fixed;
             border-collapse: collapse;
             font-size: 0.85rem;
         }
+        .mobile-table th:nth-child(1) { width: var(--mobile-rank-width); }
+        .mobile-table th:nth-child(2) { width: var(--mobile-guild-width); }
+        .mobile-table th:nth-child(3) { width: var(--mobile-world-width); }
+        .mobile-table th:nth-child(4) { width: var(--mobile-final-pt-width); }
+        .mobile-table th:nth-child(5) { width: var(--mobile-power-width); }
+        .mobile-table th:nth-child(6) { width: var(--mobile-group-id-width); }
+        .mobile-table th:nth-child(7) { width: var(--mobile-tour-id-width); }
+        .mobile-table th:nth-child(8) { width: var(--mobile-group-rank-width); }
+        .mobile-table th:nth-child(9) { width: var(--mobile-last-week-width); }
+        .mobile-table th:nth-child(10) { width: var(--mobile-this-week-width); }
+        .mobile-table th:nth-child(11) { width: var(--mobile-rank-pt-width); }
         .mobile-table th {
             background-color: #f8f9fa;
             color: #666;
@@ -186,18 +212,30 @@
         tr.block-odd { background-color: var(--block-color-1) !important; }
         tr.block-even { background-color: var(--block-color-2) !important; }
 
-        /* Sticky first column for mobile table is optional but good */
+        /* Keep rank and group name visible while numeric columns scroll. */
+        .mobile-table th:nth-child(-n+2),
+        .mobile-table td:nth-child(-n+2) {
+            position: sticky;
+            z-index: 2;
+            background-color: inherit;
+        }
         .mobile-table th:first-child,
         .mobile-table td:first-child {
-            position: sticky;
             left: 0;
-            background-color: inherit; /* inherit from row color */
-            z-index: 1;
             border-right: 1px solid #ddd;
         }
-        /* Fix for sticky background having transparency issue */
-        tr.block-odd td:first-child { background-color: var(--block-color-1); }
-        tr.block-even td:first-child { background-color: var(--block-color-2); }
+        .mobile-table th:nth-child(2),
+        .mobile-table td:nth-child(2) {
+            left: var(--mobile-rank-width);
+            border-right: 1px solid #ccc;
+            box-shadow: 2px 0 3px rgba(0,0,0,0.08);
+        }
+        .mobile-table th:nth-child(-n+2) {
+            background-color: #f8f9fa;
+            z-index: 3;
+        }
+        tr.block-odd td:nth-child(-n+2) { background-color: var(--block-color-1); }
+        tr.block-even td:nth-child(-n+2) { background-color: var(--block-color-2); }
         
         @media (max-width: 991px) {
             .desktop-view { display: none; }
