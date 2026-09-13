@@ -212,21 +212,11 @@
         tr.block-odd { background-color: var(--block-color-1) !important; }
         tr.block-even { background-color: var(--block-color-2) !important; }
 
-        /* Keep only rank visible; every other column scrolls as one aligned grid. */
+        /* Keep every cell in normal flow for Android in-app browser stability. */
         .mobile-table th:first-child,
         .mobile-table td:first-child {
-            position: sticky;
-            left: 0;
-            z-index: 2;
-            background-color: inherit;
             border-right: 1px solid #ddd;
         }
-        .mobile-table th:first-child {
-            background-color: #f8f9fa;
-            z-index: 3;
-        }
-        tr.block-odd td:first-child { background-color: var(--block-color-1); }
-        tr.block-even td:first-child { background-color: var(--block-color-2); }
         
         @media (max-width: 991px) {
             .desktop-view { display: none; }
