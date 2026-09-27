@@ -176,25 +176,23 @@
             border-bottom: 1px solid #ddd;
             white-space: nowrap;
             text-align: center;
+            vertical-align: middle;
         }
         .mobile-table td {
             padding: 7px 8px;
             border-bottom: 1px solid #eee;
             text-align: center;
+            vertical-align: middle;
             white-space: nowrap;
         }
         .mobile-table td.cell-left  { text-align: left; }
         .mobile-table td.cell-right { text-align: right; }
+
+        /* Keep every cell in normal flow for Android in-app browser stability. */
         .mobile-table th:first-child,
         .mobile-table td:first-child {
-            position: sticky;
-            left: 0;
-            background-color: inherit;
-            z-index: 1;
             border-right: 1px solid #ddd;
         }
-        tr.block-odd  td:first-child { background-color: var(--block-color-1); }
-        tr.block-even td:first-child { background-color: var(--block-color-2); }
 
         @media (max-width: 991px) {
             .desktop-view { display: none; }
